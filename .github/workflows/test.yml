@@ -41,7 +41,7 @@ jobs:
           fi
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git clone --depth 1 https://github.com/AliHome/Eset.git
+          git clone --depth 1 https://github.com/AliHome/Eset.git ESET-KeyGen
           cd ESET-KeyGen
           # Setup env
           sudo apt update
