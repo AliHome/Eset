@@ -89,11 +89,18 @@ return messages_header
 """
 PARSE_EMAILFAKE_INBOX = """
 let inbox = []
-let messages = document.getElementById('email-table').children
+let emailTable = document.getElementById('email-table')
+if (!emailTable || emailTable.children.length === 0)
+    return []
+let messages = emailTable.children
 let first_message = messages[0]
 let first_childrens = first_message.children
-if (first_message.tagName === 'DIV')
-    return [['https://emailfake.com', first_childrens[0].innerText, first_childrens[1].innerText]]
+if (first_message.tagName === 'DIV') {
+    let onclick = first_message.getAttribute('onclick') || ''
+    let match = onclick.match(/loadInboxClientSide\\(['"]([^'"]+)['"]\\)/)
+    let href = match ? ('https://emailfake.com' + (match[1].startsWith('/') ? '' : '/') + match[1]) : window.location.href
+    return [[href, first_childrens[0].innerText, first_childrens[1].innerText]]
+}
 for (let i = 0; i < messages.length; i++)
 {
     let message = messages[i]
@@ -396,28 +403,50 @@ class EmailFakeAPI:
         self.driver = driver
         self.window_handle = None
         self.email = None
+        self.inbox_url = 'https://emailfake.com'
         self.opened_mail = False
         self.first_parse = True
+        self.parse_counter = 0
+
+    def _bypass_interstitial(self):
+        try:
+            unblock_links = self.driver.find_elements('xpath', "//a[contains(@href, '/unblock')]")
+            if unblock_links:
+                unblock_links[0].click()
+                time.sleep(2)
+                return True
+        except:
+            pass
+        return False
 
     def init(self):
         self.driver.get('https://emailfake.com/fake_email_generator')
         self.window_handle = self.driver.current_window_handle
-        untilConditionExecute(self.driver, f"return {GET_EBID}('email_ch_text').innerText.trim() !== ''", max_iter=15)
+        if self._bypass_interstitial():
+            self.driver.get('https://emailfake.com/fake_email_generator')
+        untilConditionExecute(self.driver, f"return {GET_EBID}('email_ch_text') != null && {GET_EBID}('email_ch_text').innerText.trim() !== ''", max_iter=15)
         self.email = self.driver.execute_script(f"return {GET_EBID}('email_ch_text').innerText.trim()")
-        self.driver.get('https://emailfake.com')
+        if self.email and '@' in self.email:
+            user, domain = self.email.split('@', 1)
+            self.inbox_url = f'https://emailfake.com/{domain}/{user}'
+        self.driver.get(self.inbox_url)
     
     def parse_inbox(self):
         self.driver.switch_to.window(self.window_handle)
-        if self.opened_mail or self.first_parse:
-            self.driver.get('https://emailfake.com')
+        self.parse_counter += 1
+        if self.opened_mail or self.first_parse or (self.parse_counter % 5 == 0):
+            self.driver.get(self.inbox_url)
+            if self._bypass_interstitial():
+                self.driver.get(self.inbox_url)
             self.opened_mail = False
-            self.first_parse = True
+            self.first_parse = False
         try:
             inbox = self.driver.execute_script(PARSE_EMAILFAKE_INBOX)
             if inbox is not None:
                 return inbox
         except:
             return []
+        return []
     
     def open_mail(self, url):
         self.driver.switch_to.window(self.window_handle)

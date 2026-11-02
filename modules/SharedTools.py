@@ -292,12 +292,17 @@ def initSeleniumWebDriver(browser_name: str, webdriver_path = None, browser_path
         driver_options.page_load_strategy = "eager"
         driver_options.binary_location = browser_path
         driver_options.debugger_address = ''
-        driver_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        driver_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
+        driver_options.add_experimental_option('useAutomationExtension', False)
         driver_options.add_argument("--log-level=3")
         driver_options.add_argument("--lang=en-US")
-        driver_options.add_argument(f"--load-extension={chrome_proxy_extension_path}")
+        driver_options.add_argument("--window-size=1920,1080")
+        driver_options.add_argument("--disable-blink-features=AutomationControlled")
+        driver_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+        if chrome_proxy_extension_path != '':
+            driver_options.add_argument(f"--load-extension={chrome_proxy_extension_path}")
         if headless:
-            driver_options.add_argument('--headless')
+            driver_options.add_argument('--headless=new')
         if os.name == 'posix': # For Linux
             driver_options.add_argument('--no-sandbox')
             driver_options.add_argument('--disable-dev-shm-usage')
@@ -323,11 +328,15 @@ def initSeleniumWebDriver(browser_name: str, webdriver_path = None, browser_path
         driver_options.page_load_strategy = "eager"
         driver_options.use_chromium = True
         driver_options.binary_location = browser_path
-        driver_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        driver_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
+        driver_options.add_experimental_option('useAutomationExtension', False)
         driver_options.add_argument("--log-level=3")
         driver_options.add_argument("--lang=en-US")
+        driver_options.add_argument("--window-size=1920,1080")
+        driver_options.add_argument("--disable-blink-features=AutomationControlled")
+        driver_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0")
         if headless:
-            driver_options.add_argument('--headless')
+            driver_options.add_argument('--headless=new')
         if os.name == 'posix': # For Linux
             driver_options.add_argument('--no-sandbox')
             driver_options.add_argument('--disable-dev-shm-usage')
@@ -365,6 +374,8 @@ def initSeleniumWebDriver(browser_name: str, webdriver_path = None, browser_path
         # Fix for: Your firefox profile cannot be loaded. it may be missing or inaccessible
         os.makedirs('firefox_tmp', exist_ok=True)
         os.environ['TMPDIR'] = (os.getcwd()+'/firefox_tmp').replace('\\', '/')
+        driver_options.set_preference('dom.webdriver.enabled', False)
+        driver_options.set_preference('useAutomationExtension', False)
         driver = Firefox(options=driver_options, service=service)
     elif browser_name == APPLE_SAFARI:
         driver_options = SafariOptions()
@@ -382,6 +393,35 @@ def initSeleniumWebDriver(browser_name: str, webdriver_path = None, browser_path
                 console_log(traceback.format_exc().split('Message: ')[-1].strip(), ERROR)
             else:
                 raise e
+    if driver is not None and browser_name in (GOOGLE_CHROME, MICROSOFT_EDGE):
+        try:
+            driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                'source': """
+                    Object.defineProperty(navigator, 'webdriver', {get: () => false});
+                    if (!navigator.languages || navigator.languages.length === 0) {
+                        Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+                    }
+                    if (!navigator.hardwareConcurrency || navigator.hardwareConcurrency <= 1) {
+                        Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 4});
+                    }
+                    if (window.outerHeight - window.innerHeight === 0) {
+                        Object.defineProperty(window, 'outerHeight', {get: () => (window.innerHeight || 1080) + 85});
+                    }
+                    const patchWebGL = (proto) => {
+                        if (!proto) return;
+                        const orig = proto.getParameter;
+                        proto.getParameter = function(p) {
+                            if (p === 37445) return 'Google Inc. (Intel)';
+                            if (p === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+                            return orig.call(this, p);
+                        };
+                    };
+                    if (typeof WebGLRenderingContext !== 'undefined') patchWebGL(WebGLRenderingContext.prototype);
+                    if (typeof WebGL2RenderingContext !== 'undefined') patchWebGL(WebGL2RenderingContext.prototype);
+                """
+            })
+        except Exception:
+            pass
     return driver
 
 def parseToken(email_obj, driver=None, eset_business=False, delay=DEFAULT_DELAY, max_iter=DEFAULT_MAX_ITER):

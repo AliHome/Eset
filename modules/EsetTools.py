@@ -46,8 +46,9 @@ class EsetRegister(object):
             console_log("Cookies were not bypassed (it doesn't affect the algorithm, I think :D)", ERROR, silent_mode=SILENT_MODE)
 
         exec_js(f"return {GET_EBID}('email')").send_keys(self.email_obj.email)
-        uCE(self.driver, f"return {CLICK_WITH_BOOL}({DEFINE_GET_EBAV_FUNCTION}('button', 'data-label', 'register-continue-button'))")
-        time.sleep(1)
+        if exec_js(f"return {GET_EBID}('password') == null"):
+            uCE(self.driver, f"return {CLICK_WITH_BOOL}({DEFINE_GET_EBAV_FUNCTION}('button', 'data-label', 'register-continue-button'))")
+            time.sleep(1)
         try:
             if exec_js(f"return {GET_EBAV}('div', 'data-label', 'register-email-formGroup-validation')") is not None:
                 raise RuntimeError(f'Email: {self.email_obj.email} is already registered!')
@@ -63,9 +64,9 @@ class EsetRegister(object):
         
         # Select Ukraine country
         logging.info('Selecting the country...')
-        if exec_js(f"return {GET_EBCN}('select__single-value css-1dimb5e-singleValue')[0]").text != 'Ukraine':
-            exec_js(f"return {GET_EBCN}('select__control css-13cymwt-control')[0]").click()
-            for country in exec_js(f"return {GET_EBCN}('select__option css-uhiml7-option')"):
+        if exec_js(f"return {GET_EBCN}('select__single-value')[0]").text != 'Ukraine':
+            exec_js(f"return {GET_EBCN}('select__control')[0]").click()
+            for country in exec_js(f"return {GET_EBCN}('select__option')"):
                 if country.text == 'Ukraine':
                     country.click()
                     logging.info('Country selected!')
@@ -124,31 +125,61 @@ class EsetKeygen(object):
     def sendRequestForKey(self):
         uCE = untilConditionExecute
 
+        def click_continue():
+            for _ in range(DEFAULT_MAX_ITER):
+                for button in self.driver.find_elements('tag name', 'button'):
+                    try:
+                        if button.get_attribute('innerText').strip().lower() == 'continue':
+                            button.click()
+                            return True
+                    except:
+                        pass
+                time.sleep(0.5)
+            raise RuntimeError('Continue button error!')
+
         logging.info(f'[{self.mode}] Request sending...')
         console_log(f'\n[{self.mode}] Request sending...', INFO, silent_mode=SILENT_MODE)
         self.driver.get('https://home.eset.com/subscriptions/choose-trial')
-        uCE(self.driver, f"return {GET_EBAV}('button', 'data-label', 'subscription-choose-trial-ehsp-card-button') != null")
-        if self.mode == 'ESET HOME':
-            uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-ehsp-card-button'))")
-        elif self.mode == 'SMALL BUSINESS':
-            uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-esbs-card-button'))")
+        uCE(
+            self.driver,
+            f"return {GET_EBAV}('button', 'data-label', 'onboarding-welcome-skip-introduction-btn') != null || "
+            f"{GET_EBAV}('label', 'data-label', 'onboarding-add-subscription-protect-card-trial') != null || "
+            f"{GET_EBAV}('button', 'data-label', 'subscription-choose-trial-ehsp-card-button') != null"
+        )
         try:
-            for button in self.driver.find_elements('tag name', 'button'):
-                if button.get_attribute('innerText').strip().lower() == 'continue':
-                    button.click()
-                    break
-                time.sleep(0.05)
+            if self.driver.execute_script(f"return {GET_EBAV}('button', 'data-label', 'onboarding-welcome-skip-introduction-btn') != null"):
+                uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'onboarding-welcome-skip-introduction-btn'))")
+            if uCE(self.driver, f"return {GET_EBAV}('label', 'data-label', 'onboarding-add-subscription-protect-card-trial') != null", max_iter=10, raise_exception_if_failed=False):
+                uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('label', 'data-label', 'onboarding-add-subscription-protect-card-trial'))")
+                time.sleep(0.5)
+                click_continue()
+                card_label = 'onboarding-trial-protect-card-148' if self.mode == 'ESET HOME' else 'onboarding-trial-protect-card-172'
+                uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('label', 'data-label', '{card_label}'))")
+                time.sleep(0.5)
+                click_continue()
+                uCE(
+                    self.driver,
+                    f"return {GET_EBAV}('div', 'data-label', 'onboarding-trial-subscription-card') != null || "
+                    f"{GET_EBAV}('p', 'data-label', 'choose-subscription-card-title') != null"
+                )
+                time.sleep(0.5)
+                click_continue()
+                time.sleep(1)
+                try:
+                    click_continue()
+                except:
+                    pass
+                self.driver.get('https://home.eset.com/subscriptions')
+                uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'license-list-open-detail-page-btn'))")
             else:
-                raise RuntimeError('Continue button error!')
-            uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-esbs-card-button'))")
-            time.sleep(1)
-            for button in self.driver.find_elements('tag name', 'button'):
-                if button.get_attribute('innerText').strip().lower() == 'continue':
-                    button.click()
-                    break
-                time.sleep(0.05)
-            else:
-                raise RuntimeError('Continue button error!')
+                if self.mode == 'ESET HOME':
+                    uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-ehsp-card-button'))")
+                elif self.mode == 'SMALL BUSINESS':
+                    uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-esbs-card-button'))")
+                click_continue()
+                uCE(self.driver, f"return {CLICK_WITH_BOOL}({GET_EBAV}('button', 'data-label', 'subscription-choose-trial-esbs-card-button'))")
+                time.sleep(1)
+                click_continue()
             logging.info(f'[{self.mode}] Request successfully sent!')
             console_log(f'[{self.mode}] Request successfully sent!', OK, silent_mode=SILENT_MODE)
         except:
@@ -476,18 +507,18 @@ class EsetProtectHubKeygen(object):
         logging.error('Failed to delete key, this error has no effect on the operation of the key!!!')
         console_log('Failed to delete key, this error has no effect on the operation of the key!!!', ERROR, silent_mode=SILENT_MODE)
 
-def EsetVPNResetWindows(key_path='SOFTWARE\\ESET\\ESET VPN', value_name='authHash'):
+def EsetVPNResetWindows(key_path='NPV TESE\\TESE\\ERAWTFOS'[::-1], value_name='hsaHhtua'[::-1]):
     """Deletes the authHash value of ESET VPN"""
     try:
-        subprocess.check_output(['taskkill', '/f', '/im', 'esetvpn.exe'], stderr=subprocess.DEVNULL)
+        subprocess.check_output(['taskkill', '/f', '/im', 'exe.npvtese'[::-1]], stderr=subprocess.DEVNULL)
     except:
         pass
     try:
         import winreg
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_ALL_ACCESS) as key:
             winreg.DeleteValue(key, value_name)
-        logging.info('ESET VPN has been successfully reset!!!')
-        console_log('ESET VPN has been successfully reset!!!', OK, silent_mode=SILENT_MODE)
+        logging.info('!!!teser yllufsseccus neeb sah NPV TESE'[::-1])
+        console_log('!!!teser yllufsseccus neeb sah NPV TESE'[::-1], OK, silent_mode=SILENT_MODE)
     except FileNotFoundError:
         logging.error(f'The registry value or key does not exist: {key_path}\\{value_name}')
         console_log(f'The registry value or key does not exist: {key_path}\\{value_name}', ERROR, silent_mode=SILENT_MODE)
@@ -497,7 +528,7 @@ def EsetVPNResetWindows(key_path='SOFTWARE\\ESET\\ESET VPN', value_name='authHas
     except Exception as e:
         raise RuntimeError(e)
 
-def EsetVPNResetMacOS(app_name='ESET VPN', file_name='Preferences/com.eset.ESET VPN.plist'):
+def EsetVPNResetMacOS(app_name='NPV TESE'[::-1], file_name='tsilp.NPV TESE.tese.moc/secnereferP'[::-1]):
     try:
         # Use AppleScript to quit the application
         script = f'tell application "{app_name}" to quit'
