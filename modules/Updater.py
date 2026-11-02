@@ -179,7 +179,7 @@ class Updater:
         if data_path.endswith('.zip'): # source code
             try:
                 with zipfile.ZipFile(data_path, 'r') as zipf:
-                    extracted_folder_name = zipf.filelist[0].filename[0:-1] # rzc0d3r-ESET-KeyGen-56a2c5b/ -> rzc0d3r-ESET-KeyGen-56a2c5b
+                    extracted_folder_name = zipf.filelist[0].filename[0:-1] # AliHome-ESET-KeyGen-56a2c5b/ -> AliHome-ESET-KeyGen-56a2c5b
                     zipf.extractall()
                     logging.info("Extraction completed successfully!")
                     console_log("Extraction completed successfully!", OK, silent_mode=self.disable_logging)

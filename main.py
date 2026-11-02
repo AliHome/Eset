@@ -35,14 +35,14 @@ LOGO = f"""
 ███████╗███████║███████╗   ██║      ██║  ██╗███████╗   ██║   ╚██████╔╝███████╗██║ ╚████║   
 ╚══════╝╚══════╝╚══════╝   ╚═╝      ╚═╝  ╚═╝╚══════╝   ╚═╝    ╚═════╝ ╚══════╝╚═╝  ╚═══╝                                                                      
                                                 Project Version: {VERSION[0]}
-                                                Project Devs: rzc0d3r, AdityaGarg8, k0re,
+                                                Project Devs: AliHome, AdityaGarg8, k0re,
                                                               Fasjeit, alejanpa17, Ischunddu,
                                                               soladify, AngryBonk, Xoncia,
                                                               Anteneh13, otre4, AHDR3,
                                                               Shariful797
 """
 if '--no-logo' in sys.argv:
-    LOGO = f"ESET KeyGen {VERSION[0]} by rzc0d3r\n"
+    LOGO = f"ESET KeyGen {VERSION[0]} by AliHome\n"
 
 DEFAULT_PATH_TO_PROXY_FILE = 'proxies.txt'
 DEFAULT_EMAIL_API = 'emailfake'
